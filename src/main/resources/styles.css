@@ -1,0 +1,36 @@
+.game-button {
+    -fx-background-color: white; /*#9595b4*/
+    -fx-text-fill: white;
+    -fx-padding: 10px;
+    -fx-font-size: 16px;
+}
+
+.stats-label {
+    -fx-font-size: 16;
+}
+
+.stats-count-label {
+    -fx-font-size: 16;
+    -fx-font-weight: bold;
+}
+
+#controlPane {
+    -fx-padding: 20;
+    -fx-background-color: gray;
+}
+
+#btnContainer {
+    -fx-padding: 10;
+    -fx-alignment: center-left;
+}
+
+#statsContainer {
+    -fx-padding: 10;
+    -fx-alignment: center-right;
+}
+
+#playPane {
+   -fx-background-color: white;  /*#082466*/
+    -fx-background-radius: 10;
+    -fx-background-insets: 5;
+}
