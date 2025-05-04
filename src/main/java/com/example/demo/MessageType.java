@@ -12,6 +12,7 @@ public enum MessageType {
     GAME_START,
     GAME_CANCEL,
     GAME_OVER,
+    LEADERBOARD_UPDATE,
     PLAYER_MOVE,
     PLAYER_SHOOT,
     GAME_STATE_UPDATE,

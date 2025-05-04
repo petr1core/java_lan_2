@@ -29,6 +29,7 @@ import javafx.scene.control.*;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.effect.Light;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -255,13 +256,52 @@ public class Client extends Application {
         VBox playersStats = new VBox(5);
         playersStats.setId("playersStats");
 
+        Button btnLeaderboard = new Button("Leaderboard");
+        btnLeaderboard.setOnAction(e -> showLeaderboard());
+
 //        Label lblScore = new Label();
 //        lblScore.textProperty().bind(score.asString("Score: %d"));
 //        Label lblArrows = new Label();
 //        lblArrows.textProperty().bind(arrows.asString("Arrows: %d"));
 
-        statsPanel.getChildren().addAll(title, playersStats);
+        statsPanel.getChildren().addAll(title, playersStats, btnLeaderboard);
         return statsPanel;
+    }
+
+    private void showLeaderboard() {
+        Stage leaderboardStage = new Stage();
+        leaderboardStage.setTitle("Top Players");
+        TableView<PlayerStats> table = new TableView<>();
+        table.setSortPolicy(null);
+
+        // Колонка с именем
+        TableColumn<PlayerStats, String> nameColumn = new TableColumn<>("Player");
+        nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+
+        // Колонка с победами
+        TableColumn<PlayerStats, Integer> winsColumn = new TableColumn<>("Wins");
+        winsColumn.setCellValueFactory(new PropertyValueFactory<>("wins"));
+
+        // Колонка с общим числом очков
+        TableColumn<PlayerStats, Integer> PointsColumn = new TableColumn<>("Total points");
+        PointsColumn.setCellValueFactory(new PropertyValueFactory<>("totalPoints"));
+
+        // Колонка с общим числом очков
+        TableColumn<PlayerStats, Integer> DateColumn = new TableColumn<>("Last activity");
+        DateColumn.setCellValueFactory(new PropertyValueFactory<>("lastSeen"));
+
+        table.getColumns().addAll(nameColumn, winsColumn, PointsColumn, DateColumn);
+
+        // Загрузка данных в фоновом потоке
+        new Thread(() -> {
+            List<PlayerStats> leaders = DataBase.getLeaderboard();
+            Platform.runLater(() -> table.getItems().setAll(leaders));
+        }).start();
+
+        VBox vbox = new VBox(table);
+        Scene scene = new Scene(vbox, 450, 400);
+        leaderboardStage.setScene(scene);
+        leaderboardStage.show();
     }
 
     private void updatePlayersStats(Map<String, Integer> scores, Map<String, Integer> arrows) {
@@ -452,6 +492,8 @@ public class Client extends Application {
             while(targetIter.hasNext()) {
                 Target t = targetIter.next();
                 if(t.isActive() && t.isHit(p)) {
+                    System.out.println("Collision detected: " + p.getId() + " with " + t.getId());
+
                     Message hitMsg = new Message();
                     hitMsg.setType(MessageType.HIT);
                     hitMsg.setHitTargetId(t.getId());

@@ -1,10 +1,13 @@
-module com.example.demo {
+open module com.example.demo {
     requires javafx.controls;
     requires javafx.fxml;
     requires java.logging;
     requires com.google.gson;
     requires java.desktop;
+    requires java.sql;
+    requires org.hibernate.orm.core;
+    requires jakarta.persistence;
+    requires java.naming;
 
-    opens com.example.demo to com.google.gson;
     exports com.example.demo;
 }

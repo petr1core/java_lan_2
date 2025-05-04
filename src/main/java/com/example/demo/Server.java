@@ -17,10 +17,11 @@ public class Server {
     protected static final List<TargetData> activeTargets = Collections.synchronizedList(new ArrayList<>());
     static final Gson gson = new Gson();
     protected static boolean paused = false;
-
+    private static volatile boolean gameEnded = false;
     public static void main(String[] args) {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             System.out.println("Server started on port " + PORT);
+            DataBase.initialize();
             startGameLoop();
             while (!Thread.interrupted()) {
                 try {
@@ -35,6 +36,30 @@ public class Server {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static synchronized void saveUser(String name) {
+        DataBase.savePlayerStats(name);
+    }
+
+    public static  synchronized void savePlayerStats(String name) {
+        DataBase.savePlayerStats(name);
+    }
+
+    public static synchronized void incrementWins(String name) {
+        DataBase.incrementWins(name);
+    }
+
+    public static void incrementTotalPoints(String username, Integer pts) {
+        DataBase.incrementTotalPoints(username, pts);
+    }
+
+    public static void updateLastSeen(String username) {
+        DataBase.updateLastSeen(username);
+    }
+
+    public static synchronized List<PlayerStats> getLeaderboard() {
+        return DataBase.getLeaderboard();
     }
 
     public static void broadcastLobbyUpdate() {
@@ -117,9 +142,9 @@ public class Server {
             for (ClientHandler client : clients) {
                 String nick = client.getNickname();
                 if (nick != null) {
-                positions.put(client.getNickname(), client.getPlayerY());
-                scores.put(client.getNickname(), client.getScore());
-                arrows.put(nick, client.getArrowsCount());
+                    positions.put(nick, client.getPlayerY());
+                    scores.put(nick, client.getScore());
+                    arrows.put(nick, client.getArrowsCount());
                 }
             }
         }
@@ -128,6 +153,7 @@ public class Server {
         msg.setScores(scores);
         msg.setArrows(arrows);
 
+        // Отправка обновления состояния
         String json = gson.toJson(msg);
         synchronized(clients) {
             for(ClientHandler client : clients) {
@@ -136,29 +162,60 @@ public class Server {
         }
 
         // Проверка на победу
-        Optional<Map.Entry<String, Integer>> winner = scores.entrySet()
-                .stream()
-                .filter(e -> e.getValue() >= Config.GAME_WIN_SCORE)
-                .findFirst();
+        if (!gameEnded) {
+            Optional<Map.Entry<String, Integer>> winner = scores.entrySet()
+                    .stream()
+                    .filter(e -> e.getValue() >= Config.GAME_WIN_SCORE)
+                    .findFirst();
 
-        if (winner.isPresent()) {
-            Message gameOverMsg = new Message();
-            gameOverMsg.setType(MessageType.GAME_OVER);
-            gameOverMsg.setContent(winner.get().getKey());
-
-            resetAllReadyStatus();
-
-            String json_ = gson.toJson(gameOverMsg);
-            synchronized(clients) {
-                for(ClientHandler client : clients) {
-                    client.sendMessage(json_);
-                    client.resetGameState();
-                }
+            if (winner.isPresent()) {
+                processGameEnd(winner.get().getKey(), scores);
             }
-            return;
         }
     }
 
+    private static synchronized void processGameEnd(String winnerNick, Map<String, Integer> scores) {
+        if (gameEnded) return;
+        gameEnded = true;
+
+        System.out.println("Game ended. Winner: " + winnerNick);
+
+        Server.incrementWins(winnerNick);
+
+        Message gameOverMsg = new Message();
+        gameOverMsg.setType(MessageType.GAME_OVER);
+        gameOverMsg.setContent(winnerNick);
+
+        resetAllReadyStatus();
+
+        String json = gson.toJson(gameOverMsg);
+        synchronized(clients) {
+            for(ClientHandler client : clients) {
+                String currentNick = client.getNickname();
+                Server.savePlayerStats(currentNick);
+                Server.incrementTotalPoints(currentNick, scores.get(currentNick));
+                Server.updateLastSeen(currentNick);
+                client.sendMessage(json);
+                client.resetGameState();
+            }
+        }
+
+        broadcastLeaderboard();
+    }
+
+    private static void broadcastLeaderboard() {
+        List<PlayerStats> leaders = DataBase.getLeaderboard();
+        Message msg = new Message();
+        msg.setType(MessageType.LEADERBOARD_UPDATE);
+        msg.setLeaders(leaders);
+
+        String json = gson.toJson(msg);
+        synchronized (clients) {
+            for (ClientHandler client : clients) {
+                client.sendMessage(json);
+            }
+        }
+    }
 
     public static void broadcastProjectiles(List<ProjectileData> projectiles) {
         Message msg = new Message();
@@ -254,7 +311,6 @@ public class Server {
             }
         }
     }
-
 }
 
 class ClientHandler extends Thread {
@@ -328,6 +384,9 @@ class ClientHandler extends Thread {
 
                 Server.clients.add(this);
                 this.isReady = false;
+                Server.saveUser(nickname);
+                Server.updateLastSeen(nickname);
+                //System.out.println(DataBase.dbPath);
                 System.out.println("Registered: " + nickname);
             }
 
@@ -525,7 +584,7 @@ class ClientHandler extends Thread {
                 column
         );
         newTarget.setId(UUID.randomUUID().toString()); // Генерируем новый ID
-
+        System.out.println("NEW TARGET PTS: " + newTarget.getPoints());
         synchronized(Server.activeTargets) {
             Server.activeTargets.add(newTarget);
             //System.out.println(Server.activeTargets.toArray().length);

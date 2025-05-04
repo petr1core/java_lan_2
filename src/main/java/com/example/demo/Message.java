@@ -51,6 +51,9 @@ public class Message {
     @SerializedName("arrows")
     private Map<String, Integer> arrows;
 
+    @SerializedName("leaders")
+    private List<PlayerStats> leaders = new ArrayList<>();
+
     public Message() {}
 
     @Override
@@ -72,6 +75,7 @@ public class Message {
         sb.append(", \nhit-arrowId=").append(hitArrowId);
         sb.append(", \nhit-points=").append(points);
         sb.append(", \narrows=").append(arrows);
+        sb.append(", \nleaders=").append(leaders);
         sb.append("\n}");
 
         return sb.toString();
@@ -199,5 +203,8 @@ public class Message {
         this.shooter = shooter;
     }
 
+    public void setLeaders(List<PlayerStats> leaders) {
+        this.leaders = leaders;
+    }
 
 }
